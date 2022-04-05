@@ -43,13 +43,22 @@ export default function Page() {
 function projectCards(projects: DEM_CI.Project[]) {
   return projects.map((item: DEM_CI.Project) => {
     return (
-      <ProCard
-        key={item.id}
-        title={item.name}
-        extra={item.description}
-        style={{ maxWidth: 300 }}
-        headerBordered
-      ></ProCard>
+      <>
+        <br />
+        <ProCard
+          key={item.id}
+          title={item.name}
+          extra={item.id}
+          tooltip={item.apps?.length}
+          style={{ maxWidth: 300 }}
+          headerBordered
+          onClick={() => {
+            alert(item.id);
+          }}
+        >
+          {item.description}
+        </ProCard>
+      </>
     );
   });
 }
