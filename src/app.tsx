@@ -1,7 +1,7 @@
 import type { Settings as LayoutSettings } from '@ant-design/pro-layout';
 import { SettingDrawer } from '@ant-design/pro-layout';
 import { PageLoading } from '@ant-design/pro-layout';
-import type { RunTimeLayoutConfig } from 'umi';
+import type { RequestConfig, RunTimeLayoutConfig } from 'umi';
 import { history, Link } from 'umi';
 import RightContent from '@/components/RightContent';
 import Footer from '@/components/Footer';
@@ -9,6 +9,8 @@ import { currentUser as queryCurrentUser } from './services/ant-design-pro/api';
 import { getProjects } from './services/demci/project';
 import { BookOutlined, LinkOutlined } from '@ant-design/icons';
 import defaultSettings from '../config/defaultSettings';
+import { notification } from 'antd';
+import { ResponseError, RequestOptionsInit } from 'umi-request';
 
 const isDev = process.env.NODE_ENV === 'development';
 const loginPath = '/user/login';
@@ -108,4 +110,45 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
     },
     ...initialState?.settings,
   };
+};
+
+const errHandler = (error: ResponseError) => {
+  notification.error({
+    description: '网络异常，无法连接服务器',
+    message: '网络异常:' + error.message,
+  });
+};
+
+const authHeaderInterceptor = (url: string, options: RequestOptionsInit) => {
+  const token = localStorage.getItem('token');
+  let authHeader = { ...options.headers };
+  if (token !== null) {
+    authHeader = { ...options.headers, Authorization: `Bear $token` };
+  }
+  console.log('authHeaderInterceptor', url, options, authHeader);
+
+  return {
+    url: url,
+    options: { ...options, interceptors: true, headers: authHeader },
+  };
+};
+
+const responseInterceptor = (response: Response, options: RequestOptionsInit) => {
+  console.log('responseInterceptor', response, options);
+  if (response.status === 401) {
+    // 401 清除token信息并跳转到登录页面
+    notification.error({
+      description: '无权限访问',
+      message: '401',
+    });
+    localStorage.removeItem('token');
+    history.push(loginPath);
+  }
+  return response;
+};
+
+export const request: RequestConfig = {
+  errHandler,
+  requestInterceptors: [authHeaderInterceptor],
+  responseInterceptors: [responseInterceptor],
 };
