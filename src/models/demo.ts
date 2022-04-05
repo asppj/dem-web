@@ -1,1 +1,1 @@
-export default () => "Hello model demo!";
+export default () => 'Hello model demo!';
