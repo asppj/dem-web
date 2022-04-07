@@ -3,6 +3,7 @@ import styles from './index.less';
 import logo from '../../../public/icons/icon-192x192.png';
 import ProCard from '@ant-design/pro-card';
 import { getProjects } from '@/services/demci/project';
+import RandWheel from '@/components/RandWheel';
 
 import { Image } from 'antd';
 export default function Page() {
@@ -36,6 +37,7 @@ export default function Page() {
         内容
       </ProCard>
       {projectCards(data)}
+      <RandWheel></RandWheel>
     </div>
   );
 }
