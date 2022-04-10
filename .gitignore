@@ -13,14 +13,13 @@ _roadhog-api-doc
 .DS_Store
 npm-debug.log*
 yarn-error.log
-
+*.css
 /coverage
 .idea
 yarn.lock
 package-lock.json
 pnpm-lock.yaml
 *bak
-
 
 # visual studio code
 .history

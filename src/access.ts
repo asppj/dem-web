@@ -7,5 +7,6 @@ export default function access(initialState: { currentUser?: API.CurrentUser } |
     canAdmin: currentUser && currentUser.access === 'admin',
     canUpdateTekton: () => true,
     canDeleteTekton: () => false,
+    everyOne: true,
   };
 }
