@@ -1,12 +1,12 @@
 
 export default [
-  {
-    path: '/',
-    layout: false,
-    access: "everyOne",
-    name: 'home',
-    component: './Home',
-  },
+  // {
+  //   path: '/',
+  //   layout: false,
+  //   access: "everyOne",
+  //   name: 'home',
+  //   component: './Home',
+  // },
   {
     path: '/user',
     layout: false,
@@ -29,6 +29,7 @@ export default [
   },
   { name: '查询表格', icon: 'table', path: '/list', component: './TableList' },
   { name: 'Tekton', icon: 'table', path: '/tekton', component: './Tekton' },
+  { name: 'PostFrom', icon: 'table', path: '/postform', component: './PostForm' },
   // { path: '/', redirect: '/welcome' },
   { component: './404' },
 ];
