@@ -1,16 +1,17 @@
 import TabPane from '@ant-design/pro-card/lib/components/TabPane'
-import Field from '@ant-design/pro-form/lib/components/Field'
-import { PageContainer } from '@ant-design/pro-layout'
-import { Button, Col, Descriptions, Input, Row, Select, Tabs } from 'antd'
-import React, { ChangeEvent, forwardRef, useRef } from 'react'
+import { Button, Col, Input, Radio, Row, Select, Tabs } from 'antd'
+import React, { forwardRef, useEffect, useRef } from 'react'
 import { useImperativeHandle } from 'react'
-import { ReactElement, useState } from 'react'
+import { useState } from 'react'
 import styles from './index.less'
-import { Controlled as CodeMirror } from 'react-codemirror2'
 import { request } from 'umi'
+import { MinusOutlined, PlusOutlined } from '@ant-design/icons'
+import { encrypt } from '@/util/crypto'
 
-
-
+import { Controlled as CodeMirror } from 'react-codemirror2'
+import MonacoEditor from 'react-monaco-editor'
+import { Editor } from './components/RequestForm'
+import { Field } from 'rc-field-form'
 
 
 export class PostFormData {
@@ -31,6 +32,35 @@ const PostFromItem: React.FC<{ data: PostFormData }> = forwardRef((prop, ref) =>
   if (prop) {
     console.log(prop)
   }
+  // 加解密
+  const [enSecret, setEnSecret] = useState("") // 加密key
+  const [deSecret, setDeSecret] = useState("") // 解密key
+  // response 格式化，解密
+  const [cryptRadio, setCyrptRadio] = useState(false);
+  const [jsonFormatRadio, setJsonFormatRadio] = useState(false);
+  const joinCurlBody = (url: string, method: string, headers: string[][], body: string) => {
+    let curl = `curl -X ${method} ${url}`
+
+    headers.map((header: string[]) => {
+      if (header.length === 2) {
+        if (header[0] != "") {
+          curl += ` -H "${header[0]}: ${header[1]}"`
+        }
+      }
+    });
+    if (body != "") {
+      if (cryptRadio) {
+        curl += ` -d '${encrypt(body, enSecret)}'`
+      } else {
+        curl += ` -d '${body}'`
+      }
+    }
+    return curl
+  }
+
+  // 拼接curl
+  const [curlBody, setCurlBody] = useState('')
+
   useImperativeHandle(ref, () => ({
     save: () => {
       // TODO: storage
@@ -57,8 +87,27 @@ const PostFromItem: React.FC<{ data: PostFormData }> = forwardRef((prop, ref) =>
   const onChangeURL = (e: string) => {
     setURL(e)
   }
+  const [headers, setHeaders] = useState(prop.data.headers);
+  const addHeader = () => {
+    console.log("Add Header");
+    setHeaders([...headers, ["", ""]])
+  }
+  const removeHeader = (index: number) => {
+    console.log("Remove:", index);
+    setHeaders(headers.filter((_, i) => i !== index))
+  }
+  const changeHeader = (i: number, j: number, e: string) => {
+    headers[i][j] = e
+    setHeaders([...headers])
+  }
   // body
-  const [requestBody, setRequestBody] = useState(prop.data.body)
+  const [requestBody, setRequestBody] = useState(prop.data.body || '{\n\n}')
+  // body加密
+  const [bodyEncrypt, setBodyEncrypt] = useState(false)
+  const onChangeBodyEncrypt = () => {
+    console.log("Body Encrypt:", bodyEncrypt);
+    setBodyEncrypt(!bodyEncrypt)
+  }
   // const bodyOption = {
   //   mode: 'xml',
   //   theme: 'material',
@@ -81,15 +130,51 @@ const PostFromItem: React.FC<{ data: PostFormData }> = forwardRef((prop, ref) =>
       console.log(res.data);
       setResponseText("res.data")
     }).catch(err => {
-      console.log("reponse:", err);
+      console.log("response:", err);
     })
   }
 
-  return (<>
-    <Row>
-      <Col span={14}>
-        <Row gutter={[16, 16]}>
-          <Col span={2}>
+  const [ftRes, setFtRes] = useState("");
+  // 转换response
+  const translateFunc = (res: string) => {
+    let r = res
+    if (cryptRadio) {
+      r = encrypt(res, deSecret)
+    }
+
+    if (jsonFormatRadio) {
+      // TODO: 格式化输出
+    }
+
+    return r
+  }
+  // curl 拼接curl
+  useEffect(() => {
+    setCurlBody(joinCurlBody(URL, method, headers, requestBody))
+    if (responseText != "") {
+      const f = translateFunc(responseText);
+      if (f != "") {
+        setFtRes(f)
+      }
+
+    }
+  }, [URL, method, headers, requestBody])
+
+  return (<div className={styles.container}>
+    <Row gutter={[12, 12]}>
+      <Col span={6}>
+        <Input size={"small"} allowClear addonBefore="Body加密Secret" value={enSecret} onChange={(e) => { setEnSecret(e.target.value) }}></Input>
+      </Col>
+      <Col span={6}>
+        <Input size={"small"} allowClear addonBefore="Response解密Secret" value={deSecret} onChange={(e) => { setDeSecret(e.target.value) }}></Input>
+
+      </Col>
+
+    </Row>
+    <Row gutter={[16, 16]} >
+      <Col span={12} >
+        <Row gutter={[24, 24]}>
+          <Col span={4}>
             <Select value={method} className={styles.methodSelect} onChange={onChangeMethod}>
               {
                 Object.keys(methodMap).map((key) => {
@@ -100,33 +185,40 @@ const PostFromItem: React.FC<{ data: PostFormData }> = forwardRef((prop, ref) =>
               }
             </Select>
           </Col>
-          <Col span={10}>
+          <Col span={20}>
             <Input addonBefore="网址" value={URL} onChange={(e) => { onChangeURL(e.target.value) }} />
           </Col>
         </Row>
-        <Row gutter={[16, 16]} >
-          <Col span={2}><span className={styles.headerSpan}>Headers</span></Col>
-          <Col span={14}>
+        <Row gutter={[24, 24]} >
+          <Col span={4}><span className={styles.headerSpan}>Headers</span></Col>
+          <Col span={20}>
             {
-              prop.data.headers.map((item, index) => {
+              headers.map((item, index) => {
                 return (
-                  <Row key={`row${index}`} gutter={[14, 14]}>
-                    <Col span={8}><Input defaultValue={item[0]}></Input></Col>
-                    <Col span={8}><Input defaultValue={item[1]}></Input></Col>
+                  <Row key={`row${index}`} gutter={[24, 24]}>
+                    <Col span={8}><Input defaultValue={item[0]} onChange={(e) => { changeHeader(index, 0, e.target.value) }}></Input></Col>
+                    <Col span={8}><Input defaultValue={item[1]} onChange={(e) => { changeHeader(index, 1, e.target.value) }}></Input></Col>
+                    <Col span={1}>{index === headers.length - 1 ? <PlusOutlined onClick={addHeader} /> : < MinusOutlined onClick={() => { removeHeader(index) }} />}</Col>
                   </Row>
                 )
               })
             }
           </Col>
         </Row>
-        <Row gutter={[16, 16]}>
+        <Row gutter={[24, 24]}>
           <Col span={2}>
             Body
+          </Col>
+          <Col span={2}>
+            <Radio onClick={onChangeBodyEncrypt} checked={bodyEncrypt}>
+              加密Body
+            </Radio>
           </Col>
           <Col span={14}>
             <Input.TextArea className={styles.requestBody}
               value={requestBody}
               allowClear
+              autoSize
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
                 console.log("编辑body", e.target.value)
                 setRequestBody(e.target.value)
@@ -136,29 +228,48 @@ const PostFromItem: React.FC<{ data: PostFormData }> = forwardRef((prop, ref) =>
           </Col>
         </Row>
         <Row gutter={[16, 16]}>
-          <Button type="primary" onClick={requestClick}>发送请求</Button>
+          {/* <Col offset={12} span={2}>
+            <Button type="primary" onClick={requestClick}>发送请求</Button>
+          </Col> */}
         </Row>
+        <br />
 
+        <Row gutter={[24, 24]}>
+          {/* 返回值渲染 */}
 
-        {
-          prop.data.headers.map((headers: string[]) => {
-            return (
-              <>
-                <h3>
-                  <span>{headers[0]}</span>
-                  <span>:</span>
-                  <span>{headers[1]}</span>
-                </h3>
-              </>
-            )
-          })
-        }
+          <Col><span>Response:</span></Col>
+          <Col span={20}>
+            <Row gutter={[24, 24]}>
+              <Col offset={1} span={4}>
+                <Button type="primary" onClick={requestClick}>发送请求</Button>
+              </Col>
+              <Col span={4}><Radio type="default" checked={cryptRadio} onClick={() => { setCyrptRadio(!cryptRadio) }}>crypts解密</Radio></Col>
+              <Col span={4}><Radio type="default" checked={jsonFormatRadio} onClick={() => { setJsonFormatRadio(!jsonFormatRadio) }}>json格式化</Radio></Col>
+              <Col span={4}></Col>
+            </Row>
+            <Row>
+              <Col className={styles.response} span={24}>
+                <span className={styles.response}>{responseText}</span>
+              </Col>
+            </Row>
+          </Col>
+        </Row>
       </Col>
-      <Col span={8}>
-        <span className={styles.response}>{responseText}</span>
+      <Col span={12}>
+        {
+          // <div className={styles.response}>{responseText}</div>
+        }
+        <Row gutter={[24, 24]}>
+          <Col span={24}>
+            <Input.TextArea autoSize className={styles.codeMirror} value={curlBody} />
+          </Col>
+        </Row>
+        <Row >
+          <code className={styles.responseFotmat}>{ftRes}</code>
+        </Row>
       </Col>
     </Row>
-  </>)
+  </div>)
 })
 class TabPaneParams {
   title: string
@@ -194,12 +305,12 @@ const PostForm: React.FC = () => {
   const [paneTabs, setPaneTabs] = useState<TabPaneParams[]>([new TabPaneParams(defaultActivityKey, defaultActivityKey, defaultTab)]);
   const [activeKey, setActiveKey] = useState(defaultActivityKey);
   const onChange = (k: string) => {
+    setActiveKey(k)
     console.log("激活key:", k)
   };
   // 新增
   const onAdd = () => {
     const newKey = newAcKey()
-    console.log("新key:", newKey)
     paneTabs.map((pane: TabPaneParams) => {
       if (pane.key === activeKey) {
         // 设置可关闭
@@ -207,6 +318,7 @@ const PostForm: React.FC = () => {
         newPane.setCloseable(true)
         // 复制当前页参数
         setPaneTabs([...paneTabs, newPane])
+        setActiveKey(`${newKey}`)
       }
     })
   }
@@ -233,7 +345,7 @@ const PostForm: React.FC = () => {
       <Tabs
         type="editable-card"
         onChange={onChange}
-        defaultActiveKey={activeKey}
+        activeKey={activeKey}
         onEdit={onEdit}
       >
         {paneTabs.map((pane: TabPaneParams) => (
@@ -247,9 +359,4 @@ const PostForm: React.FC = () => {
 }
 
 export default PostForm;
-
-
-function sync() {
-  throw new Error('Function not implemented.')
-}
 
